@@ -457,7 +457,7 @@ def create_sentiment_insights():
             dbc.Col([
                 html.Div([
                     html.H5("🔍 Key Findings", style={'color': '#2c3e50'}),
-                    html.P("• Positive sentiment correlates with higher room prices"),
+                    html.P("• Positive sentiment often coincides with higher room prices"),
                     html.P("• Corporate bookings show more positive sentiment"),
                     html.P("• Room cleanliness is a key satisfaction driver"),
                     html.P("• Staff friendliness significantly impacts reviews")
@@ -595,12 +595,12 @@ layout = html.Div([
         dbc.Col([
             html.Div([
                 html.H4("🔧 Technical Details", style={'color': '#2c3e50', 'marginBottom': '20px'}),
-                html.Ul([
+                    html.Ul([
                     html.Li("Sentiment Analysis: Rule-based classification with keyword matching"),
                     html.Li("Feedback Generation: Randomized from predefined sentiment categories (fallback)"),
                     html.Li("Sentiment Categories: Positive, Neutral, Negative"),
                     html.Li("Analysis Scope: 3,000 hotel reservation records"),
-                    html.Li("Key Metrics: Sentiment distribution, price correlation, trend analysis"),
+                    html.Li("Key Metrics: Sentiment distribution, price analysis, trend analysis"),
                     html.Li("Business Impact: Identifies improvement areas and satisfaction drivers")
                 ], style={'fontSize': '16px', 'lineHeight': '1.6'})
             ], className="chart-container")

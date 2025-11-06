@@ -11,7 +11,6 @@ A comprehensive, modern hotel reservation analytics dashboard featuring multi-ag
 - Market segment performance insights
 
 ### 📊 **Advanced Analytics**
-- Feature correlation analysis
 - Lead time vs cancellation rate analysis
 - Seasonal booking pattern analysis
 - Market segment profitability analysis
@@ -41,6 +40,48 @@ A comprehensive, modern hotel reservation analytics dashboard featuring multi-ag
 - Interactive data tables with conditional styling
 - Summary statistics and key performance indicators
 - Export-ready report formats
+
+## 🚀 Quick Start
+# 🏨 Hotel Reservation Analytics Dashboard
+
+A comprehensive, modern hotel reservation analytics dashboard featuring multi-agent deep reinforcement learning, AI-powered forecasting, and sentiment analysis.
+
+## ✨ Features
+
+### 🏠 **Dashboard Overview**
+- Real-time hotel booking metrics and KPIs
+- Interactive revenue and booking trend visualizations
+- Booking status and room type distribution analysis
+- Market segment performance insights
+
+### 📊 **Advanced Analytics**
+- Lead time vs cancellation rate analysis
+- Seasonal booking pattern analysis
+- Market segment profitability analysis
+- Customer behavior insights (new vs repeat guests)
+
+### 🤖 **Multi-Agent Deep Reinforcement Learning (MADDPG)**
+- **Liquidity Agent**: Manages cash flow, borrowing, and debt repayment
+- **Investment Agent**: Optimizes asset allocation and marketing investments
+- **Procurement Agent**: Manages inventory, amenities, and supply chain
+- Real-time training with interactive controls
+- Learning curve visualization
+
+### 🔮 **AI-Powered Forecasting**
+- XGBoost machine learning models for booking predictions
+- 30-day future forecast with confidence intervals
+- Feature importance analysis
+- Model performance metrics (RMSE)
+
+### 💝 **Customer Sentiment Analysis**
+- AI-powered sentiment classification of customer feedback
+- Sentiment distribution and trend analysis
+- Correlation between sentiment and booking metrics
+- Market segment sentiment analysis
+
+### 📋 **Comprehensive Reports**
+- NOTE: The interactive "Reports" page has been removed from the sidebar frontend in this branch.
+  The underlying `pages/reports.py` file remains available if you want to re-enable it later.
 
 ## 🚀 Quick Start
 
@@ -84,8 +125,9 @@ hotel_dashboard_new/
 │   ├── analytics.py               # Advanced analytics
 │   ├── maddpg_demo.py            # Multi-agent DRL demo
 │   ├── forecasting.py            # AI forecasting
-│   ├── sentiment_analysis.py     # Sentiment analysis
-│   └── reports.py                # Reports generation
+│   └── sentiment_analysis.py     # Sentiment analysis
+├── Dockerfile                      # Docker image build
+├── docker-compose.yml              # Compose file to run the app
 └── Hotel Reservations.csv        # Dataset (place here)
 ```
 
@@ -149,7 +191,22 @@ The dashboard automatically:
 3. **Multi-Agent DRL**: Train and observe AI agents in action
 4. **AI Forecasting**: View booking predictions and model performance
 5. **Sentiment Analysis**: Understand customer satisfaction trends
-6. **Reports**: Generate detailed reports for different time periods
+
+## 🐳 Docker
+
+To run the app with Docker and docker-compose (recommended for consistent environments):
+
+1. Build and start with docker-compose:
+
+```bash
+docker-compose up --build
+```
+
+2. Open your browser at `http://localhost:8050`.
+
+Notes:
+- The service exposes port 8050. The Docker image installs Python packages from `requirements.txt`.
+- The repository root is mounted into the container (useful for development). Remove the volume in `docker-compose.yml` for a production image.
 
 ## 🚀 Future Enhancements
 

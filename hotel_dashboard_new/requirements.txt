@@ -8,3 +8,4 @@ xgboost==1.7.6
 torch==2.0.1
 transformers==4.33.2
 matplotlib==3.7.2
+streamlit==1.26.0

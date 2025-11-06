@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 import numpy as np
 
 # Import custom pages
-from pages import home, analytics, reports, maddpg_demo_simple as maddpg_demo, forecasting_simple as forecasting, sentiment_analysis
+from pages import home, analytics, maddpg_demo_simple as maddpg_demo, forecasting_simple as forecasting, sentiment_analysis
 
 # Initialize the Dash app with modern theme
 app = dash.Dash(
@@ -189,11 +189,6 @@ app.layout = html.Div([
                     html.I(className="fas fa-heart", style={'marginRight': '10px'}),
                     "Sentiment Analysis"
                 ], href="/sentiment", active="exact", id="nav-sentiment"),
-                
-                dbc.NavLink([
-                    html.I(className="fas fa-file-alt", style={'marginRight': '10px'}),
-                    "Reports"
-                ], href="/reports", active="exact", id="nav-reports"),
             ], vertical=True, pills=True, className="mt-4"),
             
             html.Div([
@@ -226,10 +221,9 @@ def display_page(pathname):
         return forecasting.layout
     elif pathname == '/sentiment':
         return sentiment_analysis.layout
-    elif pathname == '/reports':
-        return reports.layout
     else:
         return home.layout
 
 if __name__ == '__main__':
-    app.run_server(debug=True, host='', port=8050)
+    # Bind to 0.0.0.0 so the server is accessible from Docker containers
+    app.run_server(debug=True, host='0.0.0.0', port=8050)

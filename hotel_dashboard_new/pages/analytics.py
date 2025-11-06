@@ -4,7 +4,6 @@ import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
-import numpy as np
 from datetime import datetime, timedelta
 
 # Load hotel reservation data
@@ -35,43 +34,7 @@ except Exception as error:
     print(f"❌ Error loading data: {error}")
     df = pd.DataFrame()
 
-# Create correlation heatmap
-def create_correlation_heatmap():
-    if df.empty:
-        return go.Figure()
-    
-    # Select numeric columns for correlation
-    numeric_cols = [
-        'no_of_adults', 'no_of_children', 'no_of_weekend_nights', 'no_of_week_nights',
-        'lead_time', 'no_of_previous_cancellations', 'no_of_previous_bookings_not_canceled',
-        'avg_price_per_room', 'no_of_special_requests', 'is_canceled', 'is_repeated'
-    ]
-    
-    corr_data = df[numeric_cols].corr()
-    
-    fig = go.Figure(data=go.Heatmap(
-        z=corr_data.values,
-        x=corr_data.columns,
-        y=corr_data.columns,
-        colorscale='RdBu',
-        zmid=0,
-        text=np.round(corr_data.values, 2),
-        texttemplate="%{text}",
-        textfont={"size": 10},
-        hoverongaps=False
-    ))
-    
-    fig.update_layout(
-        title={
-            'text': "Feature Correlation Matrix",
-            'x': 0.5,
-            'font': {'size': 20, 'family': 'Inter', 'color': '#2c3e50'}
-        },
-        height=600,
-        margin=dict(l=20, r=20, t=60, b=20)
-    )
-    
-    return fig
+# Note: Feature correlation matrix has been removed per request.
 
 # Create lead time analysis
 def create_lead_time_analysis():
@@ -344,13 +307,6 @@ layout = html.Div([
     ], className="page-header"),
     
     # Analytics charts
-    dbc.Row([
-        dbc.Col([
-            html.Div([
-                dcc.Graph(figure=create_correlation_heatmap())
-            ], className="chart-container")
-        ], width=12),
-    ], className="mb-4"),
     
     dbc.Row([
         dbc.Col([
