@@ -709,7 +709,7 @@ class MADDPG:
                 next_actions_cat = torch.cat(next_actions, dim=1)
                 next_obs_cat = torch.cat(batch_next_obs_t, dim=1)
                 target_Q = self.target_critics[agent_idx](next_obs_cat, next_actions_cat).squeeze()
-                target_Q = batch_rewards_t[:, agent_idx] + self.gamma * target_Q * (1 - batch_dones_t[:, agent_idx])
+                target_Q = batch_rewards_t[:, agent_idx] + self.gamma * target_Q * (1 - batch_dones_t)
                 
                 # Track Q-target values for debugging
                 try:
@@ -846,6 +846,8 @@ training_data = {'episodes': [], 'rewards': []}
 training_logs = []
 training_in_progress = False
 agent_explanations = []  # Store agent explanations for XAI
+agent_performance_summary = {}
+action_distribution_summary = {}
 
 # Explainable AI (XAI) for Agent Decision Interpretation
 class ExplainableAI:
@@ -1038,12 +1040,45 @@ class ExplainableAI:
 def run_full_maddpg_demo(episodes=20, seed=42):
     """Advanced MADDPG demo with sophisticated training and logging"""
     global training_data, training_logs, training_in_progress, agent_explanations
+    global agent_performance_summary, action_distribution_summary
     
     try:
         training_in_progress = True
         training_logs.clear()  # Clear existing logs
         training_data = {'episodes': [], 'rewards': [], 'actor_losses': [], 'critic_losses': []}
         agent_explanations.clear()  # Clear existing explanations
+        agent_performance_summary = {}
+        action_distribution_summary = {}
+
+        # Stats containers for realistic performance reporting
+        action_counts = {
+            'Borrow': 0,
+            'Repay': 0,
+            'Invest': 0,
+            'Sell': 0,
+            'Order': 0,
+            'Hold': 0
+        }
+        liquidity_stats = {
+            'cash': [],
+            'liquidity_reward': [],
+            'borrow_count': 0,
+            'repay_count': 0,
+            'hold_count': 0
+        }
+        investment_stats = {
+            'occupancy': [],
+            'action_values': [],
+            'invest_count': 0,
+            'sell_count': 0,
+            'hold_count': 0
+        }
+        procurement_stats = {
+            'order_count': 0,
+            'hold_count': 0,
+            'order_intensity': [],
+            'occupancy_penalty': []
+        }
         
         # Initialize Explainable AI system
         xai = ExplainableAI()
@@ -1095,6 +1130,40 @@ def run_full_maddpg_demo(episodes=20, seed=42):
                 # Get actions with adaptive noise
                 actions = agent.act(obs_list, noise=noise_scale, add_noise=True)
                 act_vals = [float(a[0]) for a in actions]
+
+                # --- Track agent action distribution for reporting ---
+                liq_action = act_vals[0]
+                inv_action = act_vals[1]
+                prod_action = act_vals[2]
+
+                if liq_action > 0.2:
+                    action_counts['Borrow'] += 1
+                    liquidity_stats['borrow_count'] += 1
+                elif liq_action < -0.2:
+                    action_counts['Repay'] += 1
+                    liquidity_stats['repay_count'] += 1
+                else:
+                    action_counts['Hold'] += 1
+                    liquidity_stats['hold_count'] += 1
+
+                if inv_action > 0.2:
+                    action_counts['Invest'] += 1
+                    investment_stats['invest_count'] += 1
+                elif inv_action < -0.2:
+                    action_counts['Sell'] += 1
+                    investment_stats['sell_count'] += 1
+                else:
+                    action_counts['Hold'] += 1
+                    investment_stats['hold_count'] += 1
+                investment_stats['action_values'].append(inv_action)
+
+                if prod_action > 0.2:
+                    action_counts['Order'] += 1
+                    procurement_stats['order_count'] += 1
+                    procurement_stats['order_intensity'].append(prod_action)
+                else:
+                    action_counts['Hold'] += 1
+                    procurement_stats['hold_count'] += 1
                 
                 # Generate agent explanations for XAI (every 10 steps to avoid spam)
                 if steps % 10 == 0:
@@ -1111,6 +1180,16 @@ def run_full_maddpg_demo(episodes=20, seed=42):
                 
                 # Take step in environment
                 next_obs, rewards, done, info = env.step(act_vals)
+
+                # --- Track environment-driven KPIs for realistic summaries ---
+                liquidity_stats['cash'].append(env.cash)
+                if hasattr(env, 'reward_components') and env.reward_components:
+                    latest_components = env.reward_components[-1]
+                    liquidity_stats['liquidity_reward'].append(latest_components.get('liquidity', 0.0))
+                    procurement_stats['occupancy_penalty'].append(abs(latest_components.get('occupancy', 0.0)))
+
+                occupancy_ratio = env.occupied_rooms / env.total_rooms if getattr(env, 'total_rooms', 0) else 0.0
+                investment_stats['occupancy'].append(occupancy_ratio)
                 
                 # Store experience
                 buffer.push(obs_list, np.array(act_vals).reshape(n_agents, act_dim), rewards, next_obs, float(done))
@@ -1180,6 +1259,105 @@ def run_full_maddpg_demo(episodes=20, seed=42):
                 training_logs.append(f"  🎯 Deterministic Eval (Episode {ep + 1}): {eval_reward:.3f}")
                 print(f"  🎯 Deterministic Eval (Episode {ep + 1}): {eval_reward:.3f}")
         
+        # --- Build post-training performance summaries for dashboard visuals ---
+        def _clamp01(value):
+            return max(0.0, min(1.0, value))
+
+        total_steps_tracked = max(len(liquidity_stats['cash']), 1)
+
+        cash_array = np.array(liquidity_stats['cash']) if liquidity_stats['cash'] else np.array([0.0])
+        positive_cash_ratio = _clamp01(np.mean(cash_array > 0)) if liquidity_stats['cash'] else 0.5
+        mean_cash = float(np.mean(cash_array)) if liquidity_stats['cash'] else 0.0
+        cash_std = float(np.std(cash_array)) if liquidity_stats['cash'] else 0.0
+        cash_stability = _clamp01(1.0 - (cash_std / (abs(mean_cash) + 1e-6)))
+        liquidity_reward_mean = float(np.mean(liquidity_stats['liquidity_reward'])) if liquidity_stats['liquidity_reward'] else 0.0
+        repay_vs_borrow = _clamp01(liquidity_stats['repay_count'] / (liquidity_stats['borrow_count'] + 1e-6)) if liquidity_stats['borrow_count'] else 0.7
+        liquidity_score = round(
+            100.0 * (
+                0.4 * positive_cash_ratio +
+                0.35 * cash_stability +
+                0.15 * _clamp01((liquidity_reward_mean + 1.0) / 2.0) +
+                0.10 * repay_vs_borrow
+            ),
+            1
+        )
+
+        occupancy_array = np.array(investment_stats['occupancy']) if investment_stats['occupancy'] else np.array([0.0])
+        occupancy_mean = _clamp01(float(np.mean(occupancy_array)))
+        invest_sell_total = max(investment_stats['invest_count'] + investment_stats['sell_count'], 1)
+        investment_balance = 1.0 - abs((investment_stats['invest_count'] / invest_sell_total) - 0.55) * 2.0
+        investment_balance = _clamp01(investment_balance)
+        inv_actions = np.array(investment_stats['action_values']) if investment_stats['action_values'] else np.array([0.0])
+        action_consistency = _clamp01(1.0 - min(float(np.std(inv_actions)), 1.0))
+        investment_score = round(
+            100.0 * (
+                0.45 * occupancy_mean +
+                0.30 * investment_balance +
+                0.25 * action_consistency
+            ),
+            1
+        )
+
+        order_rate = _clamp01(procurement_stats['order_count'] / total_steps_tracked)
+        avg_order_intensity = _clamp01(float(np.mean(procurement_stats['order_intensity'])) if procurement_stats['order_intensity'] else 0.0)
+        occupancy_alignment = _clamp01(1.0 - float(np.mean(procurement_stats['occupancy_penalty'])) if procurement_stats['occupancy_penalty'] else 0.7)
+        procurement_score = round(
+            100.0 * (
+                0.35 * order_rate +
+                0.35 * occupancy_alignment +
+                0.30 * avg_order_intensity
+            ),
+            1
+        )
+
+        agent_performance_summary = {
+            'Liquidity Agent': {
+                'score': liquidity_score,
+                'positive_cash_ratio': round(positive_cash_ratio * 100, 1),
+                'cash_stability': round(cash_stability * 100, 1),
+                'repay_vs_borrow': round(repay_vs_borrow * 100, 1),
+                'mean_cash': round(mean_cash, 2)
+            },
+            'Investment Agent': {
+                'score': investment_score,
+                'avg_occupancy': round(occupancy_mean * 100, 1),
+                'action_balance': round(investment_balance * 100, 1),
+                'action_consistency': round(action_consistency * 100, 1)
+            },
+            'Procurement Agent': {
+                'score': procurement_score,
+                'order_rate': round(order_rate * 100, 1),
+                'order_intensity': round(avg_order_intensity * 100, 1),
+                'occupancy_alignment': round(occupancy_alignment * 100, 1)
+            }
+        }
+
+        # Normalize action counts for pie chart (avoid zero total)
+        action_distribution_summary = {
+            label: count for label, count in action_counts.items() if count > 0
+        }
+        if not action_distribution_summary:
+            action_distribution_summary = dict(action_counts)
+
+        # Log the realistic outcome summary
+        training_logs.append("")
+        training_logs.append("📊 Agent Performance Summary (Post-Training)")
+        for agent_name, metrics in agent_performance_summary.items():
+            training_logs.append(f"  {agent_name}: {metrics['score']:.1f}/100 overall score")
+            if agent_name == 'Liquidity Agent':
+                training_logs.append(
+                    f"    • Positive cash days: {metrics['positive_cash_ratio']:.1f}% | Stability: {metrics['cash_stability']:.1f}% | Repay vs Borrow: {metrics['repay_vs_borrow']:.1f}%"
+                )
+            elif agent_name == 'Investment Agent':
+                training_logs.append(
+                    f"    • Avg occupancy: {metrics['avg_occupancy']:.1f}% | Action balance: {metrics['action_balance']:.1f}% | Consistency: {metrics['action_consistency']:.1f}%"
+                )
+            else:
+                training_logs.append(
+                    f"    • Order rate: {metrics['order_rate']:.1f}% | Order intensity: {metrics['order_intensity']:.1f}% | Occupancy alignment: {metrics['occupancy_alignment']:.1f}%"
+                )
+        training_logs.append("  Action Mix: " + ", ".join(f"{label}={count}" for label, count in action_counts.items()))
+
         # Final training summary
         final_avg = np.mean(training_data['rewards'][-5:]) if len(training_data['rewards']) >= 5 else training_data['rewards'][-1]
         training_logs.append("Training Complete!")
@@ -1290,19 +1468,78 @@ def create_learning_curve():
 
 # Create agent performance chart
 def create_agent_performance():
-    agents = ['Liquidity Agent', 'Investment Agent', 'Procurement Agent']
-    performance = [85, 78, 92]  # Simulated performance scores
-    
-    fig = go.Figure(data=[
+    global agent_performance_summary
+
+    fig = go.Figure()
+
+    if not agent_performance_summary:
+        fig.add_annotation(
+            text="Run training to generate agent performance metrics.",
+            xref="paper",
+            yref="paper",
+            x=0.5,
+            y=0.5,
+            showarrow=False,
+            font=dict(size=14, color="#666")
+        )
+        fig.update_layout(
+            title={
+                'text': "Agent Performance Scores",
+                'x': 0.5,
+                'font': {'size': 20, 'family': 'Inter', 'color': '#2c3e50'}
+            },
+            template='plotly_white',
+            height=400,
+            margin=dict(l=20, r=20, t=60, b=20),
+            xaxis=dict(visible=False),
+            yaxis=dict(visible=False)
+        )
+        return fig
+
+    agents = list(agent_performance_summary.keys())
+    scores = [agent_performance_summary[a]['score'] for a in agents]
+
+    hover_text = []
+    for agent in agents:
+        metrics = agent_performance_summary[agent]
+        if agent == 'Liquidity Agent':
+            hover_text.append(
+                (
+                    f"Positive cash days: {metrics['positive_cash_ratio']}%<br>"
+                    f"Cash stability: {metrics['cash_stability']}%<br>"
+                    f"Repay vs borrow: {metrics['repay_vs_borrow']}%<br>"
+                    f"Avg cash balance: ${metrics['mean_cash']}"
+                )
+            )
+        elif agent == 'Investment Agent':
+            hover_text.append(
+                (
+                    f"Average occupancy: {metrics['avg_occupancy']}%<br>"
+                    f"Action balance: {metrics['action_balance']}%<br>"
+                    f"Consistency: {metrics['action_consistency']}%"
+                )
+            )
+        else:
+            hover_text.append(
+                (
+                    f"Order rate: {metrics['order_rate']}%<br>"
+                    f"Order intensity: {metrics['order_intensity']}%<br>"
+                    f"Occupancy alignment: {metrics['occupancy_alignment']}%"
+                )
+            )
+
+    fig.add_trace(
         go.Bar(
             x=agents,
-            y=performance,
+            y=scores,
             marker_color=['#f39c12', '#2ecc71', '#e74c3c'],
-            text=performance,
-            textposition='auto'
+            text=[f"{score:.1f}" for score in scores],
+            textposition='auto',
+            hovertext=hover_text,
+            hoverinfo='text'
         )
-    ])
-    
+    )
+
     fig.update_layout(
         title={
             'text': "Agent Performance Scores",
@@ -1311,27 +1548,65 @@ def create_agent_performance():
         },
         xaxis_title="Agents",
         yaxis_title="Performance Score",
+        yaxis=dict(range=[0, 105]),
         height=400,
         margin=dict(l=20, r=20, t=60, b=20),
         template='plotly_white'
     )
-    
+
     return fig
 
 # Create action distribution chart
 def create_action_distribution():
-    actions = ['Borrow', 'Repay', 'Invest', 'Sell', 'Order', 'Hold']
-    frequencies = [15, 10, 20, 8, 25, 22]  # Simulated action frequencies
-    
-    fig = go.Figure(data=[
-        go.Pie(
-            labels=actions,
-            values=frequencies,
-            hole=0.4,
-            marker_colors=['#f39c12', '#e74c3c', '#2ecc71', '#9b59b6', '#3498db', '#95a5a6']
+    global action_distribution_summary
+
+    fig = go.Figure()
+
+    if not action_distribution_summary:
+        fig.add_annotation(
+            text="Run training to generate action distribution.",
+            xref="paper",
+            yref="paper",
+            x=0.5,
+            y=0.5,
+            showarrow=False,
+            font=dict(size=14, color="#666")
         )
-    ])
-    
+        fig.update_layout(
+            title={
+                'text': "Agent Action Distribution",
+                'x': 0.5,
+                'font': {'size': 20, 'family': 'Inter', 'color': '#2c3e50'}
+            },
+            template='plotly_white',
+            height=400,
+            margin=dict(l=20, r=20, t=60, b=20)
+        )
+        return fig
+
+    labels = list(action_distribution_summary.keys())
+    values = [action_distribution_summary[label] for label in labels]
+
+    color_map = {
+        'Borrow': '#f39c12',
+        'Repay': '#e74c3c',
+        'Invest': '#2ecc71',
+        'Sell': '#9b59b6',
+        'Order': '#3498db',
+        'Hold': '#95a5a6'
+    }
+    colors = [color_map.get(label, '#95a5a6') for label in labels]
+
+    fig.add_trace(
+        go.Pie(
+            labels=labels,
+            values=values,
+            hole=0.4,
+            marker_colors=colors,
+            hoverinfo='label+percent+value'
+        )
+    )
+
     fig.update_layout(
         title={
             'text': "Agent Action Distribution",
@@ -1341,7 +1616,7 @@ def create_action_distribution():
         height=400,
         margin=dict(l=20, r=20, t=60, b=20)
     )
-    
+
     return fig
 
 def create_agent_recommendations():
