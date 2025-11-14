@@ -230,3 +230,4 @@ For questions or issues, please check the console output for detailed error mess
 ---
 
 **Built with ❤️ using Dash, Plotly, and modern web technologies**
+# hotel_final_

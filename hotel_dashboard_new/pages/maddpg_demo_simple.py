@@ -1840,13 +1840,13 @@ layout = html.Div([
     dbc.Row([
         dbc.Col([
             html.Div([
-                dcc.Graph(figure=create_agent_performance())
+                dcc.Graph(id="agent-performance", figure=create_agent_performance())
             ], className="chart-container")
         ], width=6),
         
         dbc.Col([
             html.Div([
-                dcc.Graph(figure=create_action_distribution())
+                dcc.Graph(id="action-distribution", figure=create_action_distribution())
             ], className="chart-container")
         ], width=6),
     ], className="mb-4"),
@@ -1887,14 +1887,16 @@ layout = html.Div([
     [Output("training-status", "children"),
      Output("learning-curve", "figure"),
      Output("agent-recommendations", "children"),
-     Output("training-logs", "children")],
+     Output("training-logs", "children"),
+     Output("agent-performance", "figure"),
+     Output("action-distribution", "figure")],
     [Input("train-button", "n_clicks")],
     [State("episodes-input", "value"),
      State("seed-input", "value")]
 )
 def train_agents(n_clicks, episodes, seed):
     if n_clicks is None:
-        return "", create_learning_curve(), html.P("Start training to see agent recommendations...", style={'color': '#666', 'fontStyle': 'italic'}), "Training logs will appear here..."
+        return "", create_learning_curve(), html.P("Start training to see agent recommendations...", style={'color': '#666', 'fontStyle': 'italic'}), "Training logs will appear here...", create_agent_performance(), create_action_distribution()
     
     # Run training
     success, message = run_full_maddpg_demo(episodes, seed)
@@ -1911,4 +1913,5 @@ def train_agents(n_clicks, episodes, seed):
         status = dbc.Alert(message, color="danger")
         recommendations = html.P("Training failed. Please check the data file.", style={'color': '#e74c3c'})
     
-    return status, create_learning_curve(), recommendations, logs_text
+    # Update charts with latest data
+    return status, create_learning_curve(), recommendations, logs_text, create_agent_performance(), create_action_distribution()
